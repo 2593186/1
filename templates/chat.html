@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Онлайн-мессенджер</title>
+
+  <!-- Socket.IO -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .msg-bubble {
+      max-width: 80%;
+      word-wrap: break-word;
+      border-radius: 18px;
+      padding: 8px 14px;
+    }
+    .self {
+      background-color: #007aff;
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+    .other {
+      background-color: #e5e7eb;
+      color: black;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="flex flex-col h-screen bg-slate-100">
+  <!-- Шапка -->
+  <div class="bg-blue-600 text-white text-center py-3 text-lg font-semibold">
+    💬 Онлайн-чат
+  </div>
+
+  <!-- Сообщения -->
+  <div id="messages" class="flex-1 overflow-y-auto p-3 flex flex-col space-y-2"></div>
+
+  <!-- Поле ввода -->
+  <div class="p-3 bg-white border-t flex items-center">
+    <input id="msgInput" type="text" placeholder="Сообщение..."
+           class="flex-1 border rounded-full px-4 py-2 focus:outline-none" />
+    <button id="sendBtn"
+            class="ml-2 bg-blue-500 text-white rounded-full px-4 py-2 active:scale-95 transition">
+      ➤
+    </button>
+  </div>
+
+  <!-- Скрипт чата -->
+  <script>
+    const socket = io();
+    const username = prompt("Введите имя:") || "Аноним";
+
+    socket.emit('join', { username });
+
+    const messages = document.getElementById('messages');
+    const input = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Добавление сообщения в чат
+    function appendMessage(user, text, time, self=false) {
+      const div = document.createElement('div');
+      div.className = 'msg-bubble ' + (self ? 'self' : 'other');
+      div.innerHTML = `<b>${user}</b> <small class="opacity-70">${time || ''}</small><br>${text}`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Отправка при клике или Enter
+    sendBtn.onclick = sendMsg;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+
+    function sendMsg() {
+      const text = input.value.trim();
+      if (!text) return;
+      const time = new Date().toLocaleTimeString().slice(0,5);
+      appendMessage(username, text, time, true);
+      socket.emit('chat_message', { text });
+      input.value = '';
+    }
+
+    // Приём сообщений от сервера
+    socket.on('message', data => {
+      const self = data.user === username;
+      appendMessage(data.user, data.text, data.time, self);
+    });
+  </script>
+</body>
+</html>
