@@ -1,8 +1,10 @@
+import os
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 from datetime import datetime
 
-app = Flask(__name__)
+# Flask ищет шаблоны в папке templates
+app = Flask(__name__, template_folder='templates')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 users = {}
@@ -36,4 +38,6 @@ def chat_message(data):
     emit('message', {'user': username, 'text': text, 'time': time}, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    # Render задаёт порт через переменную окружения
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, host='0.0.0.0', port=port)
