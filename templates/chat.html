@@ -1,43 +1,67 @@
-import os
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Онлайн-чат</title>
 
-# Flask ищет шаблоны в папке templates
-app = Flask(__name__, template_folder='templates')
-socketio = SocketIO(app, cors_allowed_origins="*")
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-users = {}
+  <style>
+    .msg-bubble { max-width: 80%; word-wrap: break-word; border-radius: 18px; padding: 8px 14px; }
+    .self { background-color: #007aff; color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+    .other { background-color: #e5e7eb; color: black; margin-right: auto; border-bottom-left-radius: 4px; }
+  </style>
+</head>
+<body class="flex flex-col h-screen bg-slate-100">
 
-@app.route('/')
-def index():
-    return render_template('chat.html')
+  <div class="bg-blue-600 text-white text-center py-3 text-lg font-semibold">
+    💬 Онлайн-чат
+  </div>
 
-@socketio.on('connect')
-def connect():
-    print('Клиент подключился:', request.sid)
+  <div id="messages" class="flex-1 overflow-y-auto p-3 flex flex-col space-y-2"></div>
 
-@socketio.on('disconnect')
-def disconnect():
-    if request.sid in users:
-        username = users.pop(request.sid)
-        emit('message', {'user': 'Система', 'text': f'{username} вышел из чата'}, broadcast=True)
-    print('Клиент отключился:', request.sid)
+  <div class="p-3 bg-white border-t flex">
+    <input id="msgInput" type="text" placeholder="Сообщение..." class="flex-1 border rounded-full px-4 py-2 focus:outline-none" />
+    <button id="sendBtn" class="ml-2 bg-blue-500 text-white rounded-full px-4 py-2">➤</button>
+  </div>
 
-@socketio.on('join')
-def join(data):
-    username = data.get('username', 'Аноним')
-    users[request.sid] = username
-    emit('message', {'user': 'Система', 'text': f'{username} вошёл в чат'}, broadcast=True)
+  <script>
+    const socket = io();
+    const username = prompt("Введите имя:") || "Аноним";
 
-@socketio.on('chat_message')
-def chat_message(data):
-    username = users.get(request.sid, 'Аноним')
-    text = data.get('text', '')
-    time = datetime.now().strftime('%H:%M')
-    emit('message', {'user': username, 'text': text, 'time': time}, broadcast=True)
+    socket.emit('join', { username });
 
-if __name__ == '__main__':
-    # Render задаёт порт через переменную окружения
-    port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    const messages = document.getElementById('messages');
+    const input = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function appendMessage(user, text, time, self=false) {
+      const div = document.createElement('div');
+      div.className = 'msg-bubble ' + (self ? 'self' : 'other');
+      div.innerHTML = `<b>${user}</b> <small class="opacity-70">${time || ''}</small><br>${text}`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    sendBtn.onclick = sendMsg;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+
+    function sendMsg() {
+      const text = input.value.trim();
+      if (!text) return;
+      const time = new Date().toLocaleTimeString().slice(0,5);
+      appendMessage(username, text, time, true);
+      socket.emit('chat_message', { text });
+      input.value = '';
+    }
+
+    socket.on('message', data => {
+      const self = data.user === username;
+      appendMessage(data.user, data.text, data.time, self);
+    });
+  </script>
+
+</body>
+</html>
